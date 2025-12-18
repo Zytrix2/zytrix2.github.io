@@ -1,0 +1,302 @@
+<!doctype html>
+<html>
+<head>
+    <title>chess board trainer</title>
+    <style>
+        body {
+            font-family: arial;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border: 2px solid #999;
+        }
+        button {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .board {
+            display: none;
+            margin: 20px auto;
+            width: 420px;
+        }
+        .board.active {
+            display: block;
+        }
+        .row {
+            display: flex;
+        }
+        .square {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .white { background-color: #f0d9b5; }
+        .black { background-color: #b58863; }
+        .white.inactive { background-color: #ffffff; }
+        .black.inactive { background-color: #d4f1d4; }
+        .square.correct { background-color: #90ee90 !important; }
+        .square.wrong { background-color: #ff6b6b !important; }
+        .question {
+            font-size: 28px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .score {
+            font-size: 18px;
+            text-align: center;
+        }
+        .timer {
+            font-weight: bold;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Chess Position Trainer</h1>
+
+    <div id="menu">
+        <button onclick="startpractice()">Practice</button>
+        <button onclick="startpromode()">Pro Mode</button>
+        <button onclick="startspeedmode()">Speed Test</button>
+    </div>
+
+    <div id="game" style="display:none;">
+        <div class="score">
+            Score: <span id="score">0</span> /
+            <span id="total">0</span>
+            <span id="timer"></span>
+        </div>
+
+        <div class="question" id="question"></div>
+        <div class="board" id="board"></div>
+
+        <div style="text-align:center;">
+            <button onclick="nextstage()">Next Stage</button>
+            <button onclick="backtomenu()">Back</button>
+        </div>
+    </div>
+</div>
+
+<script>
+var colomsletters = ['a','b','c','d','e','f','g','h'];
+var rowssnumbers = [8,7,6,5,4,3,2,1];
+
+var curentstage = 1;
+var ispromode = false;
+var isspeedmode = false;
+var curentsquare = '';
+var userscore = 0;
+var totaltimes = 0;
+var canuserclick = true;
+
+var speedcounter = 0;
+var speedstarttime = 0;
+var speedtimervar = null;
+
+var stagessetup = {
+    1:['g','h'],
+    2:['e','f'],
+    3:['e','f','g','h'],
+    4:['c','d'],
+    5:['c','d','e','f','g','h'],
+    6:['a','b'],
+    7:['a','b','c','d','e','f','g','h']
+};
+
+function createboard() {
+    var bordelement = document.getElementById('board');
+    bordelement.innerHTML = '';
+    var activecoloms = stagessetup[curentstage];
+
+    for (var i = 0; i < 8; i++) {
+        var rowelement = document.createElement('div');
+        rowelement.className = 'row';
+
+        for (var j = 0; j < 8; j++) {
+            var squareelement = document.createElement('div');
+            var iswhitecolor = (i + j) % 2 === 0;
+
+            squareelement.className =
+                'square ' + (iswhitecolor ? 'white' : 'black');
+
+            if (!ispromode && !isspeedmode &&
+                activecoloms.indexOf(colomsletters[j]) === -1) {
+                squareelement.classList.add('inactive');
+            }
+
+            var positiontext = colomsletters[j] + rowssnumbers[i];
+            squareelement.id = positiontext;
+
+            squareelement.onclick = function () {
+                handlesquareclick(this.id);
+            };
+
+            rowelement.appendChild(squareelement);
+        }
+
+        bordelement.appendChild(rowelement);
+    }
+}
+
+function startpractice() {
+    ispromode = false;
+    isspeedmode = false;
+    curentstage = 1;
+    userscore = 0;
+    totaltimes = 0;
+
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+    document.getElementById('timer').innerHTML = '';
+
+    createboard();
+    document.getElementById('board').classList.add('active');
+    nextquestion();
+}
+
+function startpromode() {
+    ispromode = true;
+    isspeedmode = false;
+    curentstage = 7;
+    userscore = 0;
+    totaltimes = 0;
+
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+    document.getElementById('timer').innerHTML = '';
+
+    createboard();
+    document.getElementById('board').classList.add('active');
+    nextquestion();
+}
+
+function startspeedmode() {
+    ispromode = true;
+    isspeedmode = true;
+    curentstage = 7;
+    userscore = 0;
+    totaltimes = 0;
+    speedcounter = 0;
+    speedstarttime = Date.now();
+
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+
+    createboard();
+    document.getElementById('board').classList.add('active');
+    updatetimer();
+    nextquestion();
+}
+
+function updatetimer() {
+    var timepassed = Math.floor((Date.now() - speedstarttime) / 1000);
+    document.getElementById('timer').innerHTML =
+        ' | Time: <span class="timer">' + timepassed + 's</span>';
+
+    if (isspeedmode) {
+        speedtimervar = setTimeout(updatetimer, 100);
+    }
+}
+
+function nextstage() {
+    if (curentstage < 7) {
+        curentstage++;
+        createboard();
+        nextquestion();
+    }
+}
+
+function nextquestion() {
+    canuserclick = true;
+
+    var activecoloms = stagessetup[curentstage];
+    var randomcolom =
+        activecoloms[Math.floor(Math.random() * activecoloms.length)];
+    var randomrow =
+        rowssnumbers[Math.floor(Math.random() * rowssnumbers.length)];
+
+    curentsquare = randomcolom + randomrow;
+    document.getElementById('question').innerHTML = curentsquare;
+}
+
+function handlesquareclick(clickedid) {
+    if (!canuserclick) return;
+    canuserclick = false;
+    totaltimes++;
+
+    var clickedsquare = document.getElementById(clickedid);
+    var rightsquare = document.getElementById(curentsquare);
+
+    if (clickedid === curentsquare) {
+        userscore++;
+        clickedsquare.classList.add('correct');
+    } else {
+        clickedsquare.classList.add('wrong');
+        rightsquare.classList.add('correct');
+    }
+
+    document.getElementById('score').innerHTML = userscore;
+    document.getElementById('total').innerHTML = totaltimes;
+
+    if (isspeedmode) {
+        speedcounter++;
+        if (speedcounter === 15) {
+            clearTimeout(speedtimervar);
+
+            var totaltime =
+                Math.floor((Date.now() - speedstarttime) / 1000);
+            var finalscorecalc =
+                (userscore * 100) - (totaltime * 2);
+
+            if (finalscorecalc < 0) finalscorecalc = 0;
+
+            setTimeout(function () {
+                alert(
+                    'Speed Test Finished\n\n' +
+                    'Correct: ' + userscore +
+                    '\nTime: ' + totaltime + 's\n' +
+                    'Final Score: ' + finalscorecalc
+                );
+                backtomenu();
+            }, 800);
+            return;
+        }
+    }
+
+    setTimeout(function () {
+        clickedsquare.classList.remove('correct', 'wrong');
+        rightsquare.classList.remove('correct', 'wrong');
+        nextquestion();
+        canuserclick = true;
+    }, 600);
+}
+
+function backtomenu() {
+    clearTimeout(speedtimervar);
+    document.getElementById('menu').style.display = 'block';
+    document.getElementById('game').style.display = 'none';
+    document.getElementById('board').classList.remove('active');
+}
+</script>
+
+</body>
+</html>
